@@ -1,3 +1,7 @@
+import { db } from '../db';
+import { competitionsTable, jobsTable, scholarshipsTable } from '../db/schema';
+import { lt } from 'drizzle-orm';
+
 export interface CleanupResult {
   competitions_deleted: number;
   jobs_deleted: number;
@@ -6,16 +10,40 @@ export interface CleanupResult {
 }
 
 export async function cleanupExpiredData(): Promise<CleanupResult> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is automatically cleaning expired entries from all tables.
-  // Should delete competitions where deadline_registration_date < current date
-  // Should delete jobs where deadline < current date
-  // Should delete scholarships where deadline < current date
-  // Returns count of deleted records for each category
-  return {
-    competitions_deleted: 0,
-    jobs_deleted: 0,
-    scholarships_deleted: 0,
-    total_deleted: 0
-  };
+  try {
+    const now = new Date();
+
+    // Delete expired competitions where deadline_registration_date < current date
+    const deletedCompetitions = await db.delete(competitionsTable)
+      .where(lt(competitionsTable.deadline_registration_date, now))
+      .returning()
+      .execute();
+
+    // Delete expired jobs where deadline < current date
+    const deletedJobs = await db.delete(jobsTable)
+      .where(lt(jobsTable.deadline, now))
+      .returning()
+      .execute();
+
+    // Delete expired scholarships where deadline < current date
+    const deletedScholarships = await db.delete(scholarshipsTable)
+      .where(lt(scholarshipsTable.deadline, now))
+      .returning()
+      .execute();
+
+    const competitions_deleted = deletedCompetitions.length;
+    const jobs_deleted = deletedJobs.length;
+    const scholarships_deleted = deletedScholarships.length;
+    const total_deleted = competitions_deleted + jobs_deleted + scholarships_deleted;
+
+    return {
+      competitions_deleted,
+      jobs_deleted,
+      scholarships_deleted,
+      total_deleted
+    };
+  } catch (error) {
+    console.error('Cleanup expired data failed:', error);
+    throw error;
+  }
 }
